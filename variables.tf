@@ -60,7 +60,7 @@ variable "domain_name" {
 variable "route_53_zone_id" {
   description = "Route 53 Zone ID"
   type        = string
-  default     = "Z085094335FXPD3PXEQRT"
+  default     = "ZONE_ID"
 }
 
 variable "cert_san_1" {
