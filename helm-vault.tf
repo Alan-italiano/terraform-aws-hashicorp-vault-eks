@@ -9,10 +9,6 @@ resource "kubernetes_namespace" "vault" {
   }
 }
 
-######### CREATE VAULT SECRETS (CERTS, LICENSE AND KMS) #################
-
-
-
 ######### DEPLOY VAULT HELM CHART #################
 
 resource "helm_release" "vault" {
