@@ -1,0 +1,148 @@
+# Default values for external-dns.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: registry.k8s.io/external-dns/external-dns # k8s.gcr.io/external-dns/external-dns
+  # Overrides the image tag whose default is v{{ .Chart.AppVersion }}
+  tag: "v0.13.5"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+commonLabels: {}
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: 
+    eks.amazonaws.com/role-arn: ${external_dns_role_arn} # arn:aws:iam::654654624562:role/external_dns_role
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "external-dns"
+
+rbac:
+  # Specifies whether RBAC resources should be created
+  create: true
+  additionalPermissions: []
+
+# Annotations to add to the Deployment
+deploymentAnnotations: {}
+
+podLabels: {}
+
+# Annotations to add to the Pod
+podAnnotations: {}
+
+shareProcessNamespace: false
+
+podSecurityContext:
+  fsGroup: 65534
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# Defaults to `ClusterFirst`.
+# Valid values are: `ClusterFirstWithHostNet`, `ClusterFirst`, `Default` or `None`.
+dnsPolicy:
+
+priorityClassName: ""
+
+terminationGracePeriodSeconds:
+
+serviceMonitor:
+  enabled: false
+  additionalLabels: {}
+  interval: 1m
+  scrapeTimeout: 10s
+
+env: []
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 2
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+service:
+  port: 7979
+  annotations: {}
+
+extraVolumes: []
+
+extraVolumeMounts: []
+
+resources: {}
+
+%{ if length(node_selector) != 0 ~}
+nodeSelector:
+%{ for key,value in node_selector ~}
+  ${key}: ${value} 
+%{ endfor ~}
+%{ else  ~}
+nodeSelector: {}
+%{ endif ~}
+
+tolerations: []
+
+affinity: {}
+
+topologySpreadConstraints: []
+
+logLevel: info
+logFormat: text
+
+interval: 1m
+triggerLoopOnEvent: false
+
+sources:
+  - service
+  - ingress
+
+policy: sync
+
+registry: txt
+txtOwnerId: external-dns
+txtPrefix: ""
+txtSuffix: ""
+
+domainFilters:
+  - ${domain_name}
+
+provider: aws
+
+extraArgs: 
+ - "--aws-zone-type=public"
+# - "--source=service"
+# - "--source=ingress"
+# - "--domain-filter=lab-internal.com.br" # will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
+# - "--provider=aws"
+# - "--policy=upsert-only" # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
+# - "--aws-zone-type=public" # only look at public hosted zones (valid values are public, private or no value for both)
+# - "--registry=txt"
+# - "--txt-owner-id=external-dns"
+
+deploymentStrategy:
+  type: Recreate

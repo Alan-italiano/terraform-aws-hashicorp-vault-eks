@@ -1,0 +1,241 @@
+global:
+  enabled: true
+  imagePullSecrets: []
+  logLevel: debug
+  openshift: false
+  psp:
+    enable: false
+  tlsDisable: false
+injector:
+  enabled: false
+server:
+  affinity: |
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ template "vault.name" . }}
+              app.kubernetes.io/instance: "{{ .Release.Name }}"
+              component: server
+          topologyKey: kubernetes.io/hostname
+  annotations: {}
+  auditStorage:
+    accessMode: ReadWriteOnce
+    annotations: {}
+    enabled: true
+    mountPath: /vault/audit
+    size: 1Gi
+    storageClass: gp2
+  authDelegator:
+    enabled: true
+  dataStorage:
+    accessMode: ReadWriteOnce
+    annotations: {}
+    enabled: true
+    mountPath: /vault/data
+    size: 1Gi
+    storageClass: gp2
+  dev:
+    enabled: false
+  enabled: true
+  enterpriseLicense:
+    secretName: vault-secret
+  extraSecretEnvironmentVars:
+  - envName: AWS_ACCESS_KEY_ID
+    secretName: eks-creds
+    secretKey: AWS_ACCESS_KEY_ID
+  - envName: AWS_SECRET_ACCESS_KEY
+    secretName: eks-creds
+    secretKey: AWS_SECRET_ACCESS_KEY
+  extraArgs: ""
+  volumes:
+  - name: logrotate-config
+    configMap:
+      name: logrotate-config  
+  extraContainers: 
+  - name: auditlog-rotator
+    image: vault-logrotate:latest
+    imagePullPolicy: Always
+    env:
+    - name: CRONTAB
+      value: "*/5 * * * *"
+    volumeMounts:
+    - mountPath: /etc/logrotate.conf
+      name: logrotate-config
+      subPath: logrotate.conf
+      readOnly: true
+  extraInitContainers: null
+  extraLabels: {}
+  extraVolumes:
+  - name: vault-acm-cert
+    type: secret
+  ha:
+    config: |
+      ui = true
+      listener "tcp" {
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+        tls_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+        tls_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+        tls_client_ca_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+      }
+
+      service_registration "kubernetes" {}
+
+      seal "awskms" {
+        region     = "us-east-1"
+        kms_key_id = "60efe3b3-119b-401a-9aea-2d03b99eef28"
+      }
+    disruptionBudget:
+      enabled: true
+      maxUnavailable: null
+    enabled: true
+    raft:
+      config: |
+        ui = true
+        listener "tcp" {
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+          tls_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+          tls_client_ca_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+        }
+        storage "raft" {
+          path = "/vault/data"
+          retry_join {
+            leader_api_addr = "https://vault-0.vault-internal:8200"
+            leader_ca_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+            leader_client_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+            leader_client_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+          }
+          retry_join {
+            leader_api_addr = "https://vault-1.vault-internal:8200"
+            leader_ca_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+            leader_client_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+            leader_client_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+          }
+          retry_join {
+            leader_api_addr = "https://vault-2.vault-internal:8200"
+            leader_ca_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+            leader_client_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+            leader_client_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+          }
+          retry_join {
+            leader_api_addr = "https://vault-3.vault-internal:8200"
+            leader_ca_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+            leader_client_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+            leader_client_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+         }
+         retry_join {
+            leader_api_addr = "https://vault-4.vault-internal:8200"
+            leader_ca_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.ca"
+            leader_client_cert_file = "/vault/userconfig/vault-acm-cert/vault-aws.crt"
+            leader_client_key_file = "/vault/userconfig/vault-acm-cert/vault-aws.key"
+         }
+        }
+        seal "awskms" {
+          region     = "us-east-1"
+          kms_key_id = "60efe3b3-119b-401a-9aea-2d03b99eef28"
+        }
+
+        service_registration "kubernetes" {}
+        telemetry {
+          disable_hostname = true
+          prometheus_retention_time = "12h"
+        }
+      enabled: true
+      setNodeId: true
+    replicas: 5
+  image:
+    pullPolicy: IfNotPresent
+    repository: hashicorp/vault-enterprise
+    tag: 1.17.2-ent
+  ingress:
+    activeService: true
+    annotations:
+      alb.ingress.kubernetes.io/actions.ssl-redirect: "{\n  \"Type\": \"redirect\",
+        \n  \"RedirectConfig\": { \n    \"Protocol\": \"HTTPS\", \n    \"Port\": \"443\",
+        \n    \"StatusCode\": \"HTTP_301\"\n  }\n}\n"
+      alb.ingress.kubernetes.io/backend-protocol: HTTPS
+      alb.ingress.kubernetes.io/success-codes: 200,473
+      alb.ingress.kubernetes.io/certificate-arn: |
+        arn:aws:acm:us-east-1:654654624562:certificate/dca9d86b-ad1d-4c3e-bae3-728962c2257e
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/healthcheck-path: "/v1/sys/health"
+    enabled: true
+    extraPaths: []
+    hosts:
+    - host: vault.lab-internal.com.br
+      paths: []
+    ingressClassName: alb
+    labels: {}
+    pathType: Prefix
+    performance: true
+  livenessProbe:
+    enabled: false
+    failureThreshold: 2
+    initialDelaySeconds: 60
+    path: /v1/sys/health?perfstandbyok=true&standbyok=true
+    periodSeconds: 5
+    scheme: HTTPS
+    successThreshold: 1
+    timeoutSeconds: 3
+  logFormat: ""
+  logLevel: ""
+  networkPolicy:
+    egress: []
+    enabled: false
+  nodeSelector: {}
+  preStopSleepSeconds: 5
+  priorityClassName: ""
+  readinessProbe:
+    enabled: true
+    failureThreshold: 2
+    initialDelaySeconds: 5
+    #path: /v1/sys/health?perfstandbyok=true&standbyok=true
+    periodSeconds: 5
+    scheme: HTTPS
+    successThreshold: 1
+    timeoutSeconds: 3
+      #resources:
+      #limits:
+      #cpu: 4
+      #memory: 16Gi
+      #requests:
+      #cpu: 2
+      #memory: 8Gi
+  route:
+    enabled: false
+  service:
+    annotations: {}
+    enabled: true
+    externalTrafficPolicy: Cluster
+    port: 8200
+    publishNotReadyAddresses: true
+    targetPort: 8200
+  serviceAccount:
+    annotations: {}
+    create: true
+    name: ""
+  shareProcessNamespace: true
+  standalone:
+    enabled: false
+  statefulSet:
+    annotations: {}
+  terminationGracePeriodSeconds: 10
+  tolerations: []
+  topologySpreadConstraints: "- maxSkew: 1 \n  topologyKey: topology.kubernetes.io/zone
+    \n  whenUnsatisfiable: DoNotSchedule\n  labelSelector:\n    matchLabels:\n      app.kubernetes.io/name:
+    {{ template \"vault.name\" . }}\n"
+  updateStrategyType: OnDelete
+ui:
+  activeVaultPodOnly: false
+  annotations: {}
+  enabled: true
+  externalPort: 8200
+  externalTrafficPolicy: Cluster
+  publishNotReadyAddresses: true
+  serviceType: ClusterIP
+  targetPort: 8200
