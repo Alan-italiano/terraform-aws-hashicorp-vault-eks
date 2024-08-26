@@ -41,7 +41,7 @@ module "eks" {
     one = {
       name = var.eks_node_group_name_1
 
-      instance_types = ["var.eks_instances_type_1"]
+      instance_types = var.eks_instances_type_1
       capacity_type  = var.eks_capacity_type
       min_size     = 1
       max_size     = 4
@@ -51,7 +51,7 @@ module "eks" {
     two = {
       name = var.eks_node_group_name_2
 
-      instance_types = ["var.eks_instances_type_2"]
+      instance_types = var.eks_instances_type_2
       capacity_type  = var.eks_capacity_type
       min_size     = 1
       max_size     = 4
