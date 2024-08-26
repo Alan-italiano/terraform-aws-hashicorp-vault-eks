@@ -13,7 +13,6 @@ resource "kubernetes_secret" "vault-secret" {
 }
 
 
-
 data "template_file" "vault-aws-key" {
   template = "${file("vault-aws.key")}"
 }
@@ -39,7 +38,6 @@ resource "kubernetes_secret" "vault-acm-cert" {
   type = "Opaque"
   depends_on = [kubernetes_namespace.vault]
 }
-
 
 resource "kubernetes_secret" "eks-creds" {
   metadata {
