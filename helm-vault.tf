@@ -12,7 +12,7 @@ resource "kubernetes_namespace" "vault" {
 ######### DEPLOY VAULT HELM CHART #################
 
 resource "helm_release" "vault" {
-  name       = "vault"
+  name       = "vault" # vault-primary (for primary DR cluster) # vault-secondary (for secondary DR cluster)
   repository = "https://helm.releases.hashicorp.com"
   chart      = "vault"
   version    = "0.28.1"
